@@ -1,5 +1,6 @@
 import cv2
 import numpy as np
+from scipy.ndimage import median_filter, gaussian_filter
 import matplotlib.pyplot as plt
 
 RADIUS = 240
@@ -48,6 +49,21 @@ def cropFOV(image, radius = RADIUS):
     out = cropCircle(image, center_x, center_y, radius)
     return out
 
+def background_filter(image, scale_factor=0.1, median_size=5, gaussian_sigma=5):
+    """Reduces background reflection using downscaling, median filtering, and low-pass filtering."""
+    
+    small_size = (int(image.shape[1] * scale_factor), int(image.shape[0] * scale_factor))
+    small_image = cv2.resize(image, small_size, interpolation=cv2.INTER_AREA)
+
+    median_filtered = median_filter(small_image, size=median_size)
+    low_pass_filtered = gaussian_filter(median_filtered, sigma=gaussian_sigma)
+
+    image_baseline = cv2.resize(low_pass_filtered, (image.shape[1], image.shape[0]), interpolation=cv2.INTER_LINEAR)
+
+    out = cv2.subtract(image, image_baseline)
+
+    return out
+
 def rotateImage(image, angle):
     """Rotates the image around its center by the specified angle."""
     h, w = image.shape[:2]
@@ -58,7 +74,8 @@ def rotateImage(image, angle):
     
     return rotated_image
 
-cropped_image = cropFOV(image1)
+image = background_filter(image1)
+cropped_image = cropFOV(image)
 output_image = rotateImage(cropped_image, 30)
 
 # Save and display the result
