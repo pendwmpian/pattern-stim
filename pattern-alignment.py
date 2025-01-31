@@ -48,7 +48,7 @@ def cropFOV(image, radius = RADIUS):
     out = cropCircle(image, center_x, center_y, radius)
     return out
 
-def rotate_image(image, angle):
+def rotateImage(image, angle):
     """Rotates the image around its center by the specified angle."""
     h, w = image.shape[:2]
     center = (w // 2, h // 2)
@@ -59,7 +59,7 @@ def rotate_image(image, angle):
     return rotated_image
 
 cropped_image = cropFOV(image1)
-output_image = rotate_image(cropped_image, 30)
+output_image = rotateImage(cropped_image, 30)
 
 # Save and display the result
 cv2.imwrite('output_image.jpg', output_image)
