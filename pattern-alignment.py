@@ -6,6 +6,7 @@ RADIUS = 240
 
 # Load the image in grayscale
 image1 = cv2.imread('./data/input1.bmp', cv2.IMREAD_GRAYSCALE)
+image2 = cv2.imread('./data/input2.bmp', cv2.IMREAD_GRAYSCALE)
 
 def detectOuterCircle(image, radius=RADIUS):
 
@@ -47,7 +48,18 @@ def cropFOV(image, radius = RADIUS):
     out = cropCircle(image, center_x, center_y, radius)
     return out
 
-output_image = cropFOV(image1)
+def rotate_image(image, angle):
+    """Rotates the image around its center by the specified angle."""
+    h, w = image.shape[:2]
+    center = (w // 2, h // 2)
+    
+    rotation_matrix = cv2.getRotationMatrix2D(center, angle, 1.0)
+    rotated_image = cv2.warpAffine(image, rotation_matrix, (w, h), flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT, borderValue=(0, 0, 0))
+    
+    return rotated_image
+
+cropped_image = cropFOV(image1)
+output_image = rotate_image(cropped_image, 30)
 
 # Save and display the result
 cv2.imwrite('output_image.jpg', output_image)
