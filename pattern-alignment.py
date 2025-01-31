@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 RADIUS = 240
 
 # Load the image in grayscale
-image = cv2.imread('./data/input.bmp', cv2.IMREAD_GRAYSCALE)
+image1 = cv2.imread('./data/input1.bmp', cv2.IMREAD_GRAYSCALE)
 
 def detectOuterCircle(image, radius=RADIUS):
 
@@ -24,13 +24,30 @@ def detectOuterCircle(image, radius=RADIUS):
 
     return center_x, center_y, radius
 
+def cropCircle(image, x, y, r):
+    """Crops a square region around the circle and masks outside the circle."""
+    
+    x1, y1 = x - r, y - r  
+    x2, y2 = x + r, y + r  
+    
+    cropped_image = image[y1:y2, x1:x2].copy()
+    
+    mask = np.zeros_like(cropped_image, dtype=np.uint8)
+    center = (r, r) 
+    cv2.circle(mask, center, r, (255, 255, 255), thickness=-1)
+    
+    masked_image = cv2.bitwise_and(cropped_image, mask)
 
-center_x, center_y, radius = detectOuterCircle(image)
+    return masked_image
 
-# Draw the detected circle
+def cropFOV(image, radius = RADIUS):
+    """Crops a field of view."""
 
-output_image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
-cv2.circle(output_image, (center_x, center_y), radius, (0, 255, 0), 2)
+    center_x, center_y, _ = detectOuterCircle(image, radius)
+    out = cropCircle(image, center_x, center_y, radius)
+    return out
+
+output_image = cropFOV(image1)
 
 # Save and display the result
 cv2.imwrite('output_image.jpg', output_image)
