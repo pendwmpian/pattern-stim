@@ -4,6 +4,8 @@ from scipy.ndimage import median_filter, gaussian_filter
 import matplotlib.pyplot as plt
 
 RADIUS = 240
+MINIMUM_ANGLE_UNIT = 1
+ANGLE_MAX = 10
 
 # Load the image in grayscale
 image1 = cv2.imread('./data/input1.bmp', cv2.IMREAD_GRAYSCALE)
@@ -74,9 +76,61 @@ def rotateImage(image, angle):
     
     return rotated_image
 
-image = background_filter(image1)
-cropped_image = cropFOV(image)
-output_image = rotateImage(cropped_image, 30)
+def fft_cross_correlation(image1, image2):
+    """Computes the cross-correlation of two images using FFT to find displacement (x, y)."""
+
+    image1 = image1.astype(np.float32)
+    image2 = image2.astype(np.float32)
+
+    # Normalize images
+    image1 = (image1 - np.mean(image1)) / np.std(image1)
+    image2 = (image2 - np.mean(image2)) / np.std(image2)
+
+    fft1 = np.fft.fft2(image1)
+    fft2 = np.fft.fft2(image2)
+
+    cross_power_spectrum = (fft1 * np.conj(fft2)) / np.abs(fft1 * np.conj(fft2) + 1e-10)
+
+    cross_corr = np.fft.ifft2(cross_power_spectrum).real
+
+    corr = np.max(cross_corr)
+    y_shift, x_shift = np.unravel_index(np.argmax(cross_corr), cross_corr.shape)
+
+    if y_shift > image1.shape[0] // 2:
+        y_shift -= image1.shape[0]
+    if x_shift > image1.shape[1] // 2:
+        x_shift -= image1.shape[1]
+
+    return corr, x_shift, y_shift
+
+def match_image(im1, im2):
+    "Tilt (θ) and displacement (x, y) between two images"
+
+    angles = np.arange(-1 * ANGLE_MAX, ANGLE_MAX + MINIMUM_ANGLE_UNIT, MINIMUM_ANGLE_UNIT)
+    corrs = []
+    coord = []
+
+    for angle in angles:
+        tilted_image = rotateImage(im2, angle)
+        corr, x, y = fft_cross_correlation(im1, tilted_image)
+        corrs.append(corr)
+        coord.append((x, y))
+
+    arg_match = np.argmax(corrs)
+    return angles[arg_match], coord[arg_match]
+
+image1_smoothed = background_filter(image1)
+image1_cropped = cropFOV(image1_smoothed)
+image2_smoothed = background_filter(image2)
+image2_cropped = cropFOV(image2_smoothed)
+
+cv2.imwrite('output_image_cropped1.jpg', image1_cropped)
+cv2.imwrite('output_image_cropped2.jpg', image2_cropped)
+
+angle, displace = match_image(image1_cropped, image2_cropped)
+print(angle, displace)
+
+# need more testcases
 
 # Save and display the result
-cv2.imwrite('output_image.jpg', output_image)
+# cv2.imwrite('output_image.jpg', output_image)
