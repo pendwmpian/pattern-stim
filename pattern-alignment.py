@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 
 RADIUS = 240
 MINIMUM_ANGLE_UNIT = 1
-ANGLE_MAX = 30
+ANGLE_MAX = 1
 
 # Load the image in grayscale
 image1 = cv2.imread('./data/input4.bmp', cv2.IMREAD_GRAYSCALE)
@@ -14,9 +14,10 @@ image2 = cv2.imread('./data/input5.bmp', cv2.IMREAD_GRAYSCALE)
 def detectOuterCircle(image, radius=RADIUS):
 
     blurred = cv2.GaussianBlur(image, (5, 5), 1.5)
-
+    cv2.imwrite('./data/alignment/1_blurred.jpg', blurred)
     edges = cv2.Canny(blurred, threshold1=20, threshold2=30)
-
+    cv2.imwrite('./data/alignment/2_edges.jpg', edges)
+    
     circle_template = np.zeros((radius * 2, radius * 2), dtype=np.uint8)
     cv2.circle(circle_template, (radius, radius), radius, 255, 2)
 
@@ -26,6 +27,8 @@ def detectOuterCircle(image, radius=RADIUS):
     center_x, center_y = max_loc[0] + radius, max_loc[1] + radius
 
     output_image = cv2.cvtColor(edges, cv2.COLOR_GRAY2BGR)
+    cv2.circle(output_image, (center_x, center_y), radius, (0, 255, 0), 2)
+    cv2.imwrite('./data/alignment/3_circle_edge.jpg', output_image)
     return center_x, center_y, radius
 
 def cropCircle(image, x, y, r):
@@ -49,6 +52,10 @@ def cropFOV(image, radius = RADIUS):
 
     center_x, center_y, _ = detectOuterCircle(image, radius)
     out = cropCircle(image, center_x, center_y, radius)
+    image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+    cv2.circle(image, (center_x, center_y), radius, (0, 255, 0), 2)
+    cv2.imwrite('./data/alignment/4_circle_image.jpg', image)
+    cv2.imwrite('./data/alignment/5_crop_circle.jpg', out)
     return out, (center_x, center_y)
 
 def cropSquare(image, radius = RADIUS):
@@ -66,9 +73,11 @@ def background_filter(image, scale_factor=0.1, median_size=5, gaussian_sigma=5):
     
     small_size = (int(image.shape[1] * scale_factor), int(image.shape[0] * scale_factor))
     small_image = cv2.resize(image, small_size, interpolation=cv2.INTER_AREA)
+    cv2.imwrite('./data/alignment/8_small_image.jpg', small_image)
 
     median_filtered = median_filter(small_image, size=median_size)
     low_pass_filtered = gaussian_filter(median_filtered, sigma=gaussian_sigma)
+    cv2.imwrite('./data/alignment/9_small_image_median_lowpass_filter.jpg', low_pass_filtered)
 
     image_baseline = cv2.resize(low_pass_filtered, (image.shape[1], image.shape[0]), interpolation=cv2.INTER_LINEAR)
 
@@ -133,15 +142,22 @@ def match_image(im1, im2):
     square_image1 = cropSquare(im1)
     im1_smoothed = background_filter(square_image1)
     im1_smoothed = sigmoid_contrast(im1_smoothed)
+    hist, bins = np.histogram(im1_smoothed, 256)
+    plt.plot(bins[:-1], hist)
+    plt.savefig('./data/alignment/output_image_hist.jpg')
+    cv2.imwrite('./data/alignment/output_image_im1.jpg', im1_smoothed)
 
     for angle in angles:
-        
         tilted_image = rotateImage(im2, angle)
+        cv2.imwrite('./data/alignment/6_rotated.jpg', tilted_image)
         square_tilted_image = cropSquare(tilted_image)
+        cv2.imwrite('./data/alignment/7_crop_square.jpg', square_tilted_image)
         im2_smoothed = background_filter(square_tilted_image)
+        cv2.imwrite('./data/alignment/10_background_equalization.jpg', im2_smoothed)
         im2_smoothed = sigmoid_contrast(im2_smoothed)
+        cv2.imwrite('./data/alignment/11_sigmoid_filtered_im2.jpg', im2_smoothed)
+        cv2.imwrite('./data/alignment/12_sigmoid_filtered_im1.jpg', im1_smoothed)
         corr, x, y = fft_cross_correlation(im1_smoothed, im2_smoothed)
-
         corrs.append(corr)
         coord.append((x, y))
 
@@ -200,4 +216,4 @@ print(angle, displace)
 x_shift, y_shift = displace
 
 output_image = overlay_images(image1, image2, center_im1, center_im2, angle, x_shift, y_shift, alpha=0.7)
-cv2.imwrite('output_image.jpg', output_image)
+cv2.imwrite('./data/alignment/13_output_image.jpg', output_image)
