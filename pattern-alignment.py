@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 
 RADIUS = 240
 MINIMUM_ANGLE_UNIT = 1
-ANGLE_MAX = 10
+ANGLE_MAX = 30
 
 # Load the image in grayscale
 image1 = cv2.imread('./data/input4.bmp', cv2.IMREAD_GRAYSCALE)
@@ -16,9 +16,7 @@ def detectOuterCircle(image, radius=RADIUS):
     blurred = cv2.GaussianBlur(image, (5, 5), 1.5)
 
     edges = cv2.Canny(blurred, threshold1=20, threshold2=30)
-    cv2.imwrite('output_image_im1_edge.jpg', edges)
 
-    radius = RADIUS
     circle_template = np.zeros((radius * 2, radius * 2), dtype=np.uint8)
     cv2.circle(circle_template, (radius, radius), radius, 255, 2)
 
@@ -27,6 +25,7 @@ def detectOuterCircle(image, radius=RADIUS):
     min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
     center_x, center_y = max_loc[0] + radius, max_loc[1] + radius
 
+    output_image = cv2.cvtColor(edges, cv2.COLOR_GRAY2BGR)
     return center_x, center_y, radius
 
 def cropCircle(image, x, y, r):
@@ -104,8 +103,6 @@ def fft_cross_correlation(image1, image2):
     image1 = image1.astype(np.float32)
     image2 = image2.astype(np.float32)
 
-    cv2.imwrite('output_image_im1_std.jpg', image1)
-
     # Normalize images
     image1 = (image1 - np.mean(image1)) / np.std(image1)
     image2 = (image2 - np.mean(image2)) / np.std(image2)
@@ -136,19 +133,15 @@ def match_image(im1, im2):
     square_image1 = cropSquare(im1)
     im1_smoothed = background_filter(square_image1)
     im1_smoothed = sigmoid_contrast(im1_smoothed)
-    hist, bins = np.histogram(im1_smoothed, 256)
-    plt.plot(bins[:-1], hist)
-    plt.savefig('output_image_hist.jpg')
-    cv2.imwrite('output_image_im1.jpg', im1_smoothed)
-    im1_smoothed = cv2.convertScaleAbs(im1_smoothed, alpha=3.5, beta=3)
 
     for angle in angles:
+        
         tilted_image = rotateImage(im2, angle)
         square_tilted_image = cropSquare(tilted_image)
         im2_smoothed = background_filter(square_tilted_image)
         im2_smoothed = sigmoid_contrast(im2_smoothed)
         corr, x, y = fft_cross_correlation(im1_smoothed, im2_smoothed)
-        cv2.imwrite('output_image_im2.jpg', im2_smoothed)
+
         corrs.append(corr)
         coord.append((x, y))
 
@@ -208,7 +201,3 @@ x_shift, y_shift = displace
 
 output_image = overlay_images(image1, image2, center_im1, center_im2, angle, x_shift, y_shift, alpha=0.7)
 cv2.imwrite('output_image.jpg', output_image)
-# need more testcases
-
-# Save and display the result
-# cv2.imwrite('output_image.jpg', output_image)
