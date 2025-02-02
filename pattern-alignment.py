@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 
 RADIUS = 240
 MINIMUM_ANGLE_UNIT = 1
-ANGLE_MAX = 0
+ANGLE_MAX = 10
 
 # Load the image in grayscale
 image1 = cv2.imread('./data/input4.bmp', cv2.IMREAD_GRAYSCALE)
@@ -50,7 +50,7 @@ def cropFOV(image, radius = RADIUS):
 
     center_x, center_y, _ = detectOuterCircle(image, radius)
     out = cropCircle(image, center_x, center_y, radius)
-    return out
+    return out, (center_x, center_y)
 
 def cropSquare(image, radius = RADIUS):
     r = radius
@@ -155,67 +155,58 @@ def match_image(im1, im2):
     arg_match = np.argmax(corrs)
     return angles[arg_match], coord[arg_match]
 
-def overlay_images(image1, image2, angle, x_shift, y_shift, alpha=0.5):
-    """Overlays two grayscale images with displacement and rotation.
+def overlay_images(image1, image2, center1, center2, angle, x_shift, y_shift, alpha=0.5):
+    """Overlays two grayscale images after aligning their given rotation centers.
     
-    - image1 → Blue
-    - image2 → Green (with transparency)
-    - image2 is rotated and shifted by (angle, x_shift, y_shift)
+        image1 → Blue
+        image2 → Green
+
     """
 
-    # Get original image size
-    h, w = image1.shape
+    h1, w1 = image1.shape
+    h2, w2 = image2.shape
 
-    # Compute the new bounding box size after rotation
-    center = (w // 2, h // 2)
-    rot_mat = cv2.getRotationMatrix2D(center, angle, 1.0)
-    cos_val = np.abs(rot_mat[0, 0])
-    sin_val = np.abs(rot_mat[0, 1])
-    new_w = int((h * sin_val) + (w * cos_val))
-    new_h = int((h * cos_val) + (w * sin_val))
+    # Compute shift required to align the given rotation centers
+    center_dx = center1[0] - center2[0]
+    center_dy = center1[1] - center2[1]
 
-    # Adjust rotation matrix to center the rotated image
-    rot_mat[0, 2] += (new_w / 2) - center[0]
-    rot_mat[1, 2] += (new_h / 2) - center[1]
+    # Create larger canvas to accommodate shifts
+    max_h = max(int(h1 * 1.4), int(h2 * 1.4) + abs(y_shift))
+    max_w = max(int(w1 * 1.4), int(w2 * 1.4) + abs(x_shift))
 
-    # Rotate image2
-    rotated_image2 = cv2.warpAffine(image2, rot_mat, (new_w, new_h))
-
-    # Calculate new canvas size to fit both images with shifts
-    max_h = max(h, new_h + abs(y_shift))
-    max_w = max(w, new_w + abs(x_shift))
-
-    # Create extended blank canvases
     canvas1 = np.zeros((max_h, max_w), dtype=np.uint8)
     canvas2 = np.zeros((max_h, max_w), dtype=np.uint8)
 
-    # Compute placement positions considering negative shifts
-    img1_x, img1_y = max(0, -x_shift), max(0, -y_shift)
-    img2_x, img2_y = max(0, x_shift), max(0, y_shift)
+    # Position image1 and image2 on the canvas based on center alignment
+    img1_x, img1_y = max(0, -x_shift - center_dx), max(0, -y_shift - center_dy)
+    img2_x, img2_y = max(0, x_shift + center_dx), max(0, y_shift + center_dy)
 
-    # Place images on canvases
-    canvas1[img1_y:img1_y + h, img1_x:img1_x + w] = image1
-    canvas2[img2_y:img2_y + new_h, img2_x:img2_x + new_w] = rotated_image2
+    canvas1[img1_y:img1_y + h1, img1_x:img1_x + w1] = image1
+    canvas2[img2_y:img2_y + h2, img2_x:img2_x + w2] = image2
+
+    # Rotate image2 around its given center
+    rotation_matrix = cv2.getRotationMatrix2D(center2, angle, 1.0)
+    rotated_image2 = cv2.warpAffine(canvas2, rotation_matrix, (max_w, max_h))
 
     # Convert images to 3-channel for color mapping
     blue_layer = cv2.merge([canvas1, np.zeros_like(canvas1), np.zeros_like(canvas1)])  # Blue
-    green_layer = cv2.merge([np.zeros_like(canvas2), canvas2, np.zeros_like(canvas2)])  # Green
+    green_layer = cv2.merge([np.zeros_like(rotated_image2), rotated_image2, np.zeros_like(rotated_image2)])  # Green
 
     # Blend images with transparency
     overlayed_image = cv2.addWeighted(blue_layer, 1, green_layer, alpha, 0)
 
     return overlayed_image
 
-image1_cropped = cropFOV(image1)
-cv2.imwrite('output_image_im1_FOV.jpg', image1_cropped)
-image2_cropped = cropFOV(image2)
+
+image1_cropped, center_im1 = cropFOV(image1)
+image2_cropped, center_im2 = cropFOV(image2)
 
 angle, displace = match_image(image1_cropped, image2_cropped)
 print(angle, displace)
 
 x_shift, y_shift = displace
 
-output_image = overlay_images(image1, image2, angle, x_shift, y_shift, alpha=0.7)
+output_image = overlay_images(image1, image2, center_im1, center_im2, angle, x_shift, y_shift, alpha=0.7)
 cv2.imwrite('output_image.jpg', output_image)
 # need more testcases
 
