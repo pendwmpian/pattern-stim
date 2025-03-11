@@ -79,9 +79,10 @@ def generate_stimulation_timing(ntime, duration):
     result = []
     for i in range(duration):
         result.extend(random.sample(range(i * 60, (i + 1) * 60), ntime))
+        result.sort()
     return result
 
-def define_patterns(stimulation_timing, ntime, duration, pattern_select):
+def define_patterns(stimulation_timing, ntime, pattern_select):
     """
     stimulation_timing (array): output of generate_stimulation_timing
     duration (int): duration (min)
@@ -111,7 +112,7 @@ def define_patterns(stimulation_timing, ntime, duration, pattern_select):
 
 duration = 15 # min
 nStimtime = 5 # number of stim / min
-
+nPulse = 5    # number of pulse / stim
 
 # generating patterns
 
@@ -125,7 +126,7 @@ pattern_select = [1] * duration * nStimtime # For full exposure
 # pattern_select = [random.sample(range(2, 4), duration * nStimtime)] # for random half exposure
 
 stim_time = generate_stimulation_timing(nStimtime, duration)
-cng_t, pindex = define_patterns(stim_time, nStimtime, duration, pattern_select)
+cng_t, pindex = define_patterns(stim_time, nPulse, pattern_select)
 
 
 # prepare a log file
