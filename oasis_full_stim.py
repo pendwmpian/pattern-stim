@@ -21,6 +21,7 @@ def Convert(img8):
 
 def FormatImage(img):
     width = img.shape[1]
+    img = ((img > 127) * np.ones(img.shape)).astype(np.uint8)
     n = width % 8
     if n != 0:
         pad = np.zeros((img.shape[0], 8 - n), dtype=np.uint8)
