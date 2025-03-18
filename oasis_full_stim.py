@@ -79,7 +79,7 @@ def generate_stimulation_timing(ntime, duration):
     result = []
     for i in range(duration):
         result.extend(random.sample(range(i * 60, (i + 1) * 60), ntime))
-        result.sort()
+    result.sort()
     return result
 
 def define_patterns(stimulation_timing, ntime, pattern_select):
