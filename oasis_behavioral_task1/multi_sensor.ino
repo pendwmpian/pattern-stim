@@ -29,6 +29,7 @@ const uint16_t offsetRsensor = 2100;
 
 // Define Reward Time Interval (msec)
 const uint32_t rewardTimeInterval = 5000;
+const uint32_t initialNoRewardTime = 5000;
 
 
 void reward(){
@@ -77,7 +78,7 @@ void loop()
     auto byte = Serial.read();
     mode = (uint8_t)(byte - '0');
     start_time = millis();
-    last_reward_time = start_time - rewardTimeInterval;
+    last_reward_time = start_time - rewardTimeInterval + initialNoRewardTime;
   }
 
   if(sensors[0].dataReady() && sensors[1].dataReady()){
