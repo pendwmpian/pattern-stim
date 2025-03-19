@@ -15,6 +15,7 @@ uint16_t distance[2] = {0xFFFF, 0xFFFF};
 uint32_t start_time;
 uint32_t last_reward_time;
 uint32_t task_duration;
+bool task_finished = true;
 
 // Define Reward Regions in mm(milli-meters)
 const uint16_t LRegionLeftEnd = 100;
@@ -87,6 +88,7 @@ void loop()
       byte = Serial.read();
       task_duration += byte << (i * 8);
     }
+    task_finished = false;
     start_time = millis();
     last_reward_time = start_time - rewardTimeInterval + initialNoRewardTime;
   }
@@ -97,7 +99,7 @@ void loop()
 
   // Sensor
   if(sensors[0].dataReady() && sensors[1].dataReady()){
-    char payload[40] = {0};
+    char payload[40];
     for (uint8_t i = 0; i < sensorCount; i++)
     {
       distance[i] = DistanceOffsetCorrection(sensors[i].read(false), i);
@@ -112,29 +114,37 @@ void loop()
   }
 
   // Reward
-  if (time - last_reward_time >= rewardTimeInterval){
-    bool stim = false;
+  if (time - rewardTimeInterval <= task_duration) {
+    if (time - last_reward_time >= rewardTimeInterval){
+      bool stim = false;
 
-    switch (mode) {
-      case 2:   // left
-        for (int i = 0; i < 2; i++) if(distance[i] < LRegionLeftEnd || LRegionRightEnd < distance[i]) break;
-        stim = true;
-        break;
+      switch (mode) {
+        case 2:   // left
+          for (int i = 0; i < 2; i++) if(distance[i] < LRegionLeftEnd || LRegionRightEnd < distance[i]) break;
+          stim = true;
+          break;
 
-      case 3:   // right
-        for (int i = 0; i < 2; i++) if(distance[i] < RRegionLeftEnd || RRegionRightEnd < distance[i]) break;
-        stim = true;
-        break;
+        case 3:   // right
+          for (int i = 0; i < 2; i++) if(distance[i] < RRegionLeftEnd || RRegionRightEnd < distance[i]) break;
+          stim = true;
+          break;
 
-      default:  // no task
-        break;
+        default:  // no task
+          break;
+      }
+
+      if (stim) {
+        reward(&time);
+        char payload[20];
+        sprintf(payload, "Reward: %d ms", time - start_time);
+        Serial.println(payload);
+      }
     }
-
-    if (stim && time - rewardTimeInterval <= task_duration) {
-      reward(&time);
-      char payload[20];
-      sprintf(payload, "Reward: %d ms", time - start_time);
-      Serial.println(payload);
-    }
+  } else if (!task_finished) {
+    time = millis();
+    char payload[40];
+    sprintf(payload, "Session finished: %d ms", time - start_time);
+    Serial.println(payload);
+    task_finished = true;
   }
 }
