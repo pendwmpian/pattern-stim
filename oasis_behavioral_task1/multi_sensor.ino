@@ -32,8 +32,9 @@ const uint32_t rewardTimeInterval = 5000;
 const uint32_t initialNoRewardTime = 5000;
 
 
-void reward(){
+void reward(uint32_t* time){
   digitalWrite(pin_RewardE, HIGH); 
+  time = millis();
   delay(1);
   digitalWrite(pin_RewardE, LOW); 
 }
@@ -74,6 +75,7 @@ void setup()
 
 void loop()
 {
+  uint32_t time = last_reward_time; // If the value of sensors is not updated, the program will not enter the reward section
   if (Serial.available() > 0){  // mode change
     auto byte = Serial.read();
     mode = (uint8_t)(byte - '0');
@@ -82,7 +84,7 @@ void loop()
   }
 
   if(sensors[0].dataReady() && sensors[1].dataReady()){
-    char payload[20] = {0};
+    char payload[40] = {0};
     for (uint8_t i = 0; i < sensorCount; i++)
     {
       distance[i] = DistanceOffsetCorrection(sensors[i].read(false), i);
@@ -92,11 +94,11 @@ void loop()
         break;
       }
     }
-    sprintf(payload, "Dist: %d %d", distance[0], distance[1]);
+    time = millis();
+    sprintf(payload, "Dist: %d %d (%d ms)", distance[0], distance[1], time - start_time);
     Serial.println(payload);    
   }
 
-  time = millis();
   if (time - last_reward_time >= rewardTimeInterval){
     bool stim = false;
 
@@ -116,7 +118,7 @@ void loop()
     }
 
     if (stim) {
-      reward();
+      reward(&time);
       char payload[20];
       sprintf(payload, "Reward: %d ms", time - start_time);
       Serial.println(payload);
