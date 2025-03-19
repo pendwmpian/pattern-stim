@@ -10,10 +10,11 @@ VL53L1X sensors[2];
 // Define Reward Pin
 const uint8_t pin_RewardE = 6;
 
-uint8_t mode = 0; // 0 for no-task, 1 for left, 2 for right
+uint8_t mode = 0; // 0 for no-task, 2 for left, 3 for right
 uint16_t distance[2] = {0xFFFF, 0xFFFF};
 uint32_t start_time;
 uint32_t last_reward_time;
+uint32_t task_duration;
 
 // Define Reward Regions in mm(milli-meters)
 const uint16_t LRegionLeftEnd = 100;
@@ -76,21 +77,32 @@ void setup()
 void loop()
 {
   uint32_t time = last_reward_time; // If the value of sensors is not updated, the program will not enter the reward section
-  if (Serial.available() > 0){  // mode change
+
+  // Receive session start notification
+  if (Serial.available() >= 3){ 
     auto byte = Serial.read();
-    mode = (uint8_t)(byte - '0');
+    mode = (uint8_t) byte; // mode change (2: Left, 3: Right)
+    task_duration = 0;
+    for (int i = 0; i < 2; i++){
+      byte = Serial.read();
+      task_duration += byte << (i * 8);
+    }
     start_time = millis();
     last_reward_time = start_time - rewardTimeInterval + initialNoRewardTime;
   }
+  if(mode > 3) {
+    Serial.println("Serial error. Please reset");
+    return;
+  }
 
+  // Sensor
   if(sensors[0].dataReady() && sensors[1].dataReady()){
     char payload[40] = {0};
     for (uint8_t i = 0; i < sensorCount; i++)
     {
       distance[i] = DistanceOffsetCorrection(sensors[i].read(false), i);
-      // payload += distance[i] << (i * 16);  // payload: sensor1 data in upper 2 bytes, sensor0 data in lower 2 bytes
       if (sensors[i].timeoutOccurred()) {
-        distance[i] = 0x7FFF;   // when timed out
+        distance[i] = 0xFFFF;   // when timed out
         break;
       }
     }
@@ -99,16 +111,17 @@ void loop()
     Serial.println(payload);    
   }
 
+  // Reward
   if (time - last_reward_time >= rewardTimeInterval){
     bool stim = false;
 
     switch (mode) {
-      case 1:   // left
+      case 2:   // left
         for (int i = 0; i < 2; i++) if(distance[i] < LRegionLeftEnd || LRegionRightEnd < distance[i]) break;
         stim = true;
         break;
 
-      case 2:   // right
+      case 3:   // right
         for (int i = 0; i < 2; i++) if(distance[i] < RRegionLeftEnd || RRegionRightEnd < distance[i]) break;
         stim = true;
         break;
@@ -117,7 +130,7 @@ void loop()
         break;
     }
 
-    if (stim) {
+    if (stim && time - rewardTimeInterval <= task_duration) {
       reward(&time);
       char payload[20];
       sprintf(payload, "Reward: %d ms", time - start_time);
