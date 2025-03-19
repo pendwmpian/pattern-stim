@@ -88,6 +88,7 @@ void loop()
       byte = Serial.read();
       task_duration += byte << (i * 8);
     }
+    task_duration *= 1000;
     task_finished = false;
     start_time = millis();
     last_reward_time = start_time - rewardTimeInterval + initialNoRewardTime;
