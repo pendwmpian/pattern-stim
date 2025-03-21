@@ -72,8 +72,8 @@ void setup()
 
     sensors[i].setAddress(0x2A + i);
     sensors[i].setDistanceMode(VL53L1X::Medium);
-    sensors[i].setMeasurementTimingBudget(50000);
-    sensors[i].startContinuous(50); // measuring at 20 Hz 
+    sensors[i].setMeasurementTimingBudget(80000);
+    sensors[i].startContinuous(100); // measuring at 10 Hz 
   }
 }
 
@@ -93,7 +93,7 @@ void loop()
       if (counter > 4) break;
     }
     if(counter == 4){
-      mode = (uint8_t) buff[0]-'0'; // mode change (2: Left, 3: Right)
+      mode = (uint8_t) buff[0]; // mode change (2: Left, 3: Right)
       task_duration = buff[1] + buff[2] << 8;
       task_duration *= 1000;
       task_finished = false;
@@ -107,7 +107,7 @@ void loop()
   }
 
   // Sensor
-  if(sensors[0].dataReady() && sensors[1].dataReady()){
+  if(sensors[0].dataReady()){
     char payload[40];
     for (uint8_t i = 0; i < 2; i++)
     {
