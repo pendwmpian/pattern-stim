@@ -11,7 +11,7 @@ VL53L1X sensors[2];
 const uint8_t pin_RewardE = 6;
 
 uint8_t mode = 0; // 0 for no-task, 2 for left, 3 for right
-uint16_t distance[2] = {0xFFFF, 0xFFFF};
+int16_t distance[2] = {0x7FFF, 0x7FFF};
 uint32_t start_time;
 uint32_t last_reward_time;
 uint32_t task_duration;
@@ -55,9 +55,11 @@ void setup()
     digitalWrite(xshutPins[i], LOW);
   }
 
+  delay(100);
+
   for (uint8_t i = 0; i < 2; i++)
   {
-    pinMode(xshutPins[i], INPUT);
+    digitalWrite(xshutPins[i], HIGH);
     delay(10);
 
     sensors[i].setTimeout(500);
@@ -101,11 +103,11 @@ void loop()
   // Sensor
   if(sensors[0].dataReady() && sensors[1].dataReady()){
     char payload[40];
-    for (uint8_t i = 0; i < sensorCount; i++)
+    for (uint8_t i = 0; i < 2; i++)
     {
       distance[i] = DistanceOffsetCorrection(sensors[i].read(false), i);
       if (sensors[i].timeoutOccurred()) {
-        distance[i] = 0xFFFF;   // when timed out
+        distance[i] = 0x7FFF;   // when timed out
         break;
       }
     }
