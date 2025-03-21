@@ -57,7 +57,7 @@ def FormatImage(img):
         pad = np.zeros((img.shape[0], 8 - n), dtype=np.uint8)
         img = np.hstack((img, pad))
     return Convert(img).astype(np.uint8)
-    
+
 
 def generate_image_sequence():
     """
@@ -152,6 +152,7 @@ def polygon_stimulation(cng_t, pindex, answer, duration, stim_log):
     with arduino_lock:
         payload = answer.to_bytes(1, 'little')
         payload += duration.to_bytes(2, 'little')
+        payload += b"\0"
         arduino.write(payload)
 
     stim_log.write('start signal to arduino : ' + str(datetime.datetime.now()) + '\n')
