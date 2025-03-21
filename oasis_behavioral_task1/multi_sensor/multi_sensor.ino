@@ -36,7 +36,7 @@ const uint32_t initialNoRewardTime = 5000;
 
 void reward(uint32_t* time){
   digitalWrite(pin_RewardE, HIGH); 
-  time = millis();
+  *time = millis();
   delay(1);
   digitalWrite(pin_RewardE, LOW); 
 }
