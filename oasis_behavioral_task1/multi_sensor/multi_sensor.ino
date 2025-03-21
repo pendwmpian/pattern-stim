@@ -12,9 +12,9 @@ const uint8_t pin_RewardE = 6;
 
 uint8_t mode = 0; // 0 for no-task, 2 for left, 3 for right
 int16_t distance[2] = {0x7FFF, 0x7FFF};
-uint32_t start_time;
+uint32_t start_time = 0;
 uint32_t last_reward_time;
-uint32_t task_duration;
+uint32_t task_duration = 0;
 bool task_finished = true;
 
 // Define Reward Regions in mm(milli-meters)
@@ -82,18 +82,24 @@ void loop()
   uint32_t time = last_reward_time; // If the value of sensors is not updated, the program will not enter the reward section
 
   // Receive session start notification
-  if (Serial.available() >= 3){ 
-    auto byte = Serial.read();
-    mode = (uint8_t) byte; // mode change (2: Left, 3: Right)
-    task_duration = 0;
-    for (int i = 0; i < 2; i++){
-      byte = Serial.read();
-      task_duration += byte << (i * 8);
+  if (Serial.available() > 0){ 
+    int counter = 0;
+    uint8_t buff[5];
+    uint8_t data = 0x7F;
+    while(data != '\0'){
+      data = Serial.read();
+      buff[counter] = data;
+      counter++;
+      if (counter > 4) break;
     }
-    task_duration *= 1000;
-    task_finished = false;
-    start_time = millis();
-    last_reward_time = start_time - rewardTimeInterval + initialNoRewardTime;
+    if(counter == 4){
+      mode = (uint8_t) buff[0]-'0'; // mode change (2: Left, 3: Right)
+      task_duration = buff[1] + buff[2] << 8;
+      task_duration *= 1000;
+      task_finished = false;
+      start_time = millis();
+      last_reward_time = start_time - rewardTimeInterval + initialNoRewardTime;
+    } else mode = 0x7F;
   }
   if(mode > 3) {
     Serial.println("Serial error. Please reset");
@@ -117,19 +123,23 @@ void loop()
   }
 
   // Reward
-  if (time - rewardTimeInterval <= task_duration) {
+  if (time - start_time <= task_duration) {
     if (time - last_reward_time >= rewardTimeInterval){
       bool stim = false;
 
       switch (mode) {
         case 2:   // left
-          for (int i = 0; i < 2; i++) if(distance[i] < LRegionLeftEnd || LRegionRightEnd < distance[i]) break;
-          stim = true;
+          [&](){
+            for (int i = 0; i < 2; i++) if(distance[i] < LRegionLeftEnd || LRegionRightEnd < distance[i]) return;
+            stim = true;
+          }();
           break;
 
         case 3:   // right
-          for (int i = 0; i < 2; i++) if(distance[i] < RRegionLeftEnd || RRegionRightEnd < distance[i]) break;
-          stim = true;
+          [&](){
+            for (int i = 0; i < 2; i++) if(distance[i] < RRegionLeftEnd || RRegionRightEnd < distance[i]) return;
+            stim = true;
+          }();
           break;
 
         default:  // no task
@@ -141,6 +151,7 @@ void loop()
         char payload[20];
         sprintf(payload, "Reward: %d ms", time - start_time);
         Serial.println(payload);
+        last_reward_time = time;
       }
     }
   } else if (!task_finished) {
