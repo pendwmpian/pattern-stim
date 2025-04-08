@@ -9,7 +9,7 @@ import datetime
 import random
 import cv2
 import threading
-
+import oasis_camera
 
 
 # stimulation parameters
@@ -48,8 +48,12 @@ arduino_lock = threading.Lock() # For thread-safe accessing to arduino I/O
 
 # define TCP server address
 host = "localhost"
-port = 2222
+port_stim = 2222
+port_camera = 2226
 
+# camera parameter 
+FOV_RADIUS = 414
+STIM_EDGE = 500
 
 # Convert 8-bit grayscale image to 1-bit black-white image
 def Convert(img8):
@@ -70,8 +74,24 @@ def FormatImage(img):
         img = np.hstack((img, pad))
     return Convert(img).astype(np.uint8)
 
+def detectOuterCircle(image, radius=FOV_RADIUS):
 
-def generate_image_sequence():
+    blurred = cv2.GaussianBlur(image, (5, 5), 1.5)
+
+    edges = cv2.Canny(blurred, threshold1=20, threshold2=30)
+
+    circle_template = np.zeros((radius * 2, radius * 2), dtype=np.uint8)
+    cv2.circle(circle_template, (radius, radius), radius, 255, 2)
+
+    result = cv2.matchTemplate(edges, circle_template, cv2.TM_CCOEFF_NORMED)
+
+    min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
+    center_x, center_y = max_loc[0] + radius, max_loc[1] + radius
+
+    output_image = cv2.cvtColor(edges, cv2.COLOR_GRAY2BGR)
+    return center_x, center_y, radius
+
+def generate_image_sequence(half_patt_border_x):
     """
     generate 4 patterns
     0: off
@@ -83,27 +103,31 @@ def generate_image_sequence():
     pattern_seq = []
 
     # Image 0 (off)
-    img = np.zeros((200, 200), dtype=np.uint8) * 255
+    img = np.zeros((STIM_EDGE, STIM_EDGE), dtype=np.uint8) * 255
     pattern_seq.append(FormatImage(img))
 
     # Image 1 (full exposure)
-    img = np.ones((200, 200), dtype=np.uint8) * 255
+    img = np.ones((STIM_EDGE, STIM_EDGE), dtype=np.uint8) * 255
     pattern_seq.append(FormatImage(img))
-
-    half_black = np.zeros((200, 100), dtype=np.uint8)
-    half_white = np.ones((200, 100), dtype=np.uint8) * 255
 
     # Image 2 (half exposure: left)
-    img = np.hstack((half_black, half_white))
-    # img = img.transpose()  # if needed
-    pattern_seq.append(FormatImage(img))
+    half_black = np.zeros((STIM_EDGE, STIM_EDGE - half_patt_border_x), dtype=np.uint8)
+    half_white = np.ones((STIM_EDGE, half_patt_border_x), dtype=np.uint8) * 255
 
-    # Image 3 (half exposure: left)
     img = np.hstack((half_white, half_black))
     # img = img.transpose()  # if needed
     pattern_seq.append(FormatImage(img))
 
+    # Image 3 (half exposure: left)
+    half_black = np.zeros((STIM_EDGE, half_patt_border_x), dtype=np.uint8)
+    half_white = np.ones((STIM_EDGE, STIM_EDGE - half_patt_border_x), dtype=np.uint8) * 255
+    
+    img = np.hstack((half_black, half_white))
+    # img = img.transpose()  # if needed
+    pattern_seq.append(FormatImage(img))
+
     return pattern_seq
+
 
 
 def define_one_patterns(pattern_select, offset = 0):
@@ -150,10 +174,27 @@ log_file_task = open(LOGFILR_DIR + '/experiment_' + now.strftime('%Y%m%d_%H%M%S'
 # connect to server
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 remote_ip = socket.gethostbyname( host )
-s.connect((remote_ip, port))
+s.connect((remote_ip, port_stim))
 
+# s_camera = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+# remote_ip_camera = socket.gethostbyname( host )
+# s_camera.connect((remote_ip_camera, port_camera))
+
+# # Receive Camera Image
+# oasis_camera.RequestAllImages(s_camera)
+# oasisReadImage = oasis_camera.ReadImage(s_camera)
+# oasis_image = oasisReadImage.receive()
+# fov_center_x, fov_center_y, _ = detectOuterCircle(oasis_image)
+
+
+fov_center_x = 600
 # define the pattern image size
-w = 200; h = 200
+w = STIM_EDGE; h = STIM_EDGE
+half_patt_border_x = w * fov_center_x // 1280 #oasisReadImage.width
+
+# define stimulation patterns
+
+pattern_seq = generate_image_sequence(half_patt_border_x)
 
 
 # stimulation func (Thread1)
