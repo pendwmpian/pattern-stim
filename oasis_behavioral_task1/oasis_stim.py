@@ -22,12 +22,24 @@ nSessions = 30 # number of sessions
 session_duration = [30, 40] # duration (sec) up to 65535 seconds
 # ex. [30, 40] means session durations (sec) are randomly picked up between 30-40sec (which contains 11 patterns 30, 31, ..., 39, 40)
 
+# Define Reward Regions in mm(milli-meters)
+LRegionLeftEnd = 100
+LRegionRightEnd = 900
+RRegionLeftEnd = 1100
+RRegionRightEnd = 1900
+
 # log files location
 LOGFILR_DIR = './logs'
 
 # define arduino address
-arduino = serial.Serial(
+arduino_left = serial.Serial(
     port = 'COM3',
+    baudrate = 115200,
+    parity = serial.PARITY_NONE,
+    stopbits = serial.STOPBITS_ONE,
+    bytesize = serial.EIGHTBITS)
+arduino_right = serial.Serial(
+    port = 'COM4',
     baudrate = 115200,
     parity = serial.PARITY_NONE,
     stopbits = serial.STOPBITS_ONE,
@@ -153,7 +165,8 @@ def polygon_stimulation(cng_t, pindex, answer, duration, stim_log):
         payload = answer.to_bytes(1, 'little')
         payload += duration.to_bytes(2, 'little')
         payload += b"\0"
-        arduino.write(payload)
+        arduino_left.write(payload)
+        arduino_right.write(payload)
 
     stim_log.write('start signal to arduino : ' + str(datetime.datetime.now()) + '\n')
 
@@ -179,22 +192,24 @@ def polygon_stimulation(cng_t, pindex, answer, duration, stim_log):
 
 # task recording func (Thread2)
 
-def task_recording(task_log):
+def task_recording(task_log, answer):
 
     session_fin = False
     print_cnt = 0
 
     while(session_fin is False):
-        time.sleep(0.001)
+        time.sleep(0.05)
         with arduino_lock:
-            if arduino.in_waiting > 0:
-                str = arduino.readline()
+            if arduino_left.in_waiting > 0:
+                str = arduino_left.readline()
+                distance = [-1000] * 2
 
                 match str.split(':')[0]:
 
-                    case 'Dist':
+                    case 'Dist(Left)':
                         cnt += 1
                         logging(task_log, str, True if cnt % 10 == 0 else False)
+                        distance[0] = int(str.split(' ')[1])
 
                     case 'Reward':
                         logging(task_log, str, True)
@@ -206,6 +221,27 @@ def task_recording(task_log):
                     case _:
                         logging(task_log, str, True)
                         session_fin = True
+
+                str = arduino_right.readline()
+
+                match str.split(':')[0]:
+
+                    case 'Dist(Right)':
+                        cnt += 1
+                        logging(task_log, str, True if cnt % 10 == 0 else False)
+                        distance[1] = int(str.split(' ')[1])
+                
+                    case _:
+                        pass
+                
+                if answer == 2:
+                    if LRegionLeftEnd < distance[0] and distance[0] < LRegionRightEnd and LRegionLeftEnd < distance[1] and distance[1] < LRegionRightEnd:
+                        payload = b"\64\0\0\0"
+                        arduino_left.write(payload)
+                if answer == 3:
+                    if RRegionLeftEnd < distance[0] and distance[0] < RRegionRightEnd and RRegionLeftEnd < distance[1] and distance[1] < RRegionRightEnd:
+                        payload = b"\64\0\0\0"
+                        arduino_left.write(payload)
 
 
 log_file_task.write('start sessions : ' + str(datetime.datetime.now()) + '\n\n')
@@ -220,7 +256,7 @@ for session in range(nSessions):
     cng_t, pindex = define_one_patterns(stim_LR)
 
     thread_1 = threading.Thread(target=polygon_stimulation, args=(cng_t, pindex, answer, duration, log_file_stim,))
-    thread_2 = threading.Thread(target=task_recording, args=(log_file_task,))
+    thread_2 = threading.Thread(target=task_recording, args=(log_file_task, answer,))
 
     # Session information
     logging(log_file_task, 'Session ' + str(session) + ' : ' + '\n', True)
@@ -248,7 +284,8 @@ log_file_task.write('end sessions : ' + str(datetime.datetime.now()) + '\n')
 s.close()
 
 # close arduino connection
-arduino.close()
+arduino_left.close()
+arduino_right.close()
 
 # close log files
 log_file_stim.close()
