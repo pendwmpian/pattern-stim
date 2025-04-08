@@ -22,7 +22,7 @@ port_stim = 2222
 port_camera = 2226
 
 # camera parameter 
-FOV_RADIUS = 300
+FOV_RADIUS = 414
 
 # Convert 8-bit grayscale image to 1-bit black-white image
 def Convert(img8):
@@ -45,10 +45,13 @@ def FormatImage(img):
 
 def detectOuterCircle(image, radius=FOV_RADIUS):
 
+    image = image >> 8
+    image = image.astype(np.uint8)
+
     cv2.imwrite('./data/alignment/0_original.jpg', image)
-    blurred = cv2.GaussianBlur(image, (5, 5), 1.5)
+    blurred = cv2.GaussianBlur(image, (9, 9), 1.5)
     cv2.imwrite('./data/alignment/1_blurred.jpg', blurred)
-    edges = cv2.Canny(blurred, threshold1=20, threshold2=30)
+    edges = cv2.Canny(blurred, threshold1=50, threshold2=60)
     cv2.imwrite('./data/alignment/2_edges.jpg', edges)
     
     circle_template = np.zeros((radius * 2, radius * 2), dtype=np.uint8)
@@ -69,12 +72,27 @@ s_camera = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 remote_ip_camera = socket.gethostbyname( host )
 s_camera.connect((remote_ip_camera, port_camera))
 
+s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+remote_ip = socket.gethostbyname( host )
+s.connect((remote_ip, port_stim))
+
+pattern_img = np.ones((200, 200), dtype=np.uint8) * 255
+w = np.uint32(200); h = np.uint32(200)
+
+func = np.uint32(2)
+s.send(func)
+w = np.uint32(w)
+s.send(w)
+h = np.uint32(h)
+s.send(h)
+s.send(pattern_img)
+
 # Receive Camera Image
 oasis_camera.RequestAllImages(s_camera)
 oasisReadImage = oasis_camera.ReadImage(s_camera)
 oasis_image = oasisReadImage.receive()
 fov_center_x, fov_center_y, _ = detectOuterCircle(oasis_image)
 
-# define the pattern image size
-w = 200; h = 200
-half_patt_border_x = w * fov_center_x // oasisReadImage.width()
+# # define the pattern image size
+# w = 200; h = 200
+# half_patt_border_x = w * fov_center_x // oasisReadImage.width()
