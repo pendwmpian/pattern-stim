@@ -40,7 +40,8 @@ port_stim = 2222
 port_camera = 2226
 
 # camera parameter 
-FOV_RADIUS = 300
+FOV_RADIUS = 414
+STIM_EDGE = 500
 
 # Convert 8-bit grayscale image to 1-bit black-white image
 def Convert(img8):
@@ -90,27 +91,31 @@ def generate_image_sequence(half_patt_border_x):
     pattern_seq = []
 
     # Image 0 (off)
-    img = np.zeros((200, 200), dtype=np.uint8) * 255
+    img = np.zeros((STIM_EDGE, STIM_EDGE), dtype=np.uint8) * 255
     pattern_seq.append(FormatImage(img))
 
     # Image 1 (full exposure)
-    img = np.ones((200, 200), dtype=np.uint8) * 255
+    img = np.ones((STIM_EDGE, STIM_EDGE), dtype=np.uint8) * 255
     pattern_seq.append(FormatImage(img))
-
-    half_black = np.zeros((200, half_patt_border_x), dtype=np.uint8)
-    half_white = np.ones((200, 200 - half_patt_border_x), dtype=np.uint8) * 255
 
     # Image 2 (half exposure: left)
-    img = np.hstack((half_black, half_white))
-    # img = img.transpose()  # if needed
-    pattern_seq.append(FormatImage(img))
+    half_black = np.zeros((STIM_EDGE, STIM_EDGE - half_patt_border_x), dtype=np.uint8)
+    half_white = np.ones((STIM_EDGE, half_patt_border_x), dtype=np.uint8) * 255
 
-    # Image 3 (half exposure: left)
     img = np.hstack((half_white, half_black))
     # img = img.transpose()  # if needed
     pattern_seq.append(FormatImage(img))
 
+    # Image 3 (half exposure: left)
+    half_black = np.zeros((STIM_EDGE, half_patt_border_x), dtype=np.uint8)
+    half_white = np.ones((STIM_EDGE, STIM_EDGE - half_patt_border_x), dtype=np.uint8) * 255
+    
+    img = np.hstack((half_black, half_white))
+    # img = img.transpose()  # if needed
+    pattern_seq.append(FormatImage(img))
+
     return pattern_seq
+
 
 
 def define_one_patterns(pattern_select, offset = 0):
@@ -159,19 +164,21 @@ s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 remote_ip = socket.gethostbyname( host )
 s.connect((remote_ip, port_stim))
 
-s_camera = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-remote_ip_camera = socket.gethostbyname( host )
-s_camera.connect((remote_ip_camera, port_camera))
+# s_camera = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+# remote_ip_camera = socket.gethostbyname( host )
+# s_camera.connect((remote_ip_camera, port_camera))
 
-# Receive Camera Image
-oasis_camera.RequestAllImages(s_camera)
-oasisReadImage = oasis_camera.ReadImage(s_camera)
-oasis_image = oasisReadImage.receive()
-fov_center_x, fov_center_y, _ = detectOuterCircle(oasis_image)
+# # Receive Camera Image
+# oasis_camera.RequestAllImages(s_camera)
+# oasisReadImage = oasis_camera.ReadImage(s_camera)
+# oasis_image = oasisReadImage.receive()
+# fov_center_x, fov_center_y, _ = detectOuterCircle(oasis_image)
 
+
+fov_center_x = 600
 # define the pattern image size
-w = 200; h = 200
-half_patt_border_x = w * fov_center_x // oasisReadImage.width()
+w = STIM_EDGE; h = STIM_EDGE
+half_patt_border_x = w * fov_center_x // 1280 #oasisReadImage.width
 
 # define stimulation patterns
 
