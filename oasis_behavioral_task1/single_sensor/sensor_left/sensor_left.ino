@@ -25,12 +25,16 @@ const uint16_t offsetRsensor = 2100;
 const uint32_t rewardTimeInterval = 5000;
 const uint32_t initialNoRewardTime = 5000;
 
+// serial communication
+uint8_t buff[4] = {0};
+int counter = 0;
 
-void reward(uint32_t* time){
+uint32_t reward(){
   digitalWrite(pin_RewardE, HIGH); 
-  *time = millis();
+  auto time = millis();
   delay(1);
-  digitalWrite(pin_RewardE, LOW); 
+  digitalWrite(pin_RewardE, LOW);
+  return time; 
 }
 
 void setup()
@@ -56,29 +60,30 @@ void setup()
 
 void loop()
 {
-  uint32_t time = last_reward_time; // If the value of sensors is not updated, the program will not enter the reward section
+  uint32_t time = millis();
 
   // Receive session start notification
+
   if (Serial.available() > 0){ 
-    int counter = 0;
-    uint8_t buff[5];
-    uint8_t data = 0x7F;
-    while(data != '\0'){
-      data = Serial.read();
+    auto data = Serial.read();
+    if(data != -1){
       buff[counter] = data;
       counter++;
-      if (counter > 4) break;
     }
     if(counter == 4){
-      if ((uint8_t)buff[0] != 64){ // 64 is for reward stim 
-        mode = (uint8_t) buff[0]; // mode change (2: Left, 3: Right)
-        task_duration = buff[1] + buff[2] << 8;
-        task_duration *= 1000;
-        task_finished = false;
-        start_time = millis();
-        last_reward_time = start_time - rewardTimeInterval + initialNoRewardTime;
-      } else stim = true;
-    } else mode = 0x7F;
+      counter = 0;
+      if(buff[3] == 0){
+        if ((uint8_t)buff[0] != 64){ // 64 is for reward stim 
+          mode = (uint8_t) buff[0]; // mode change (2: Left, 3: Right)
+          task_duration = buff[1] + (buff[2] * 255);
+          task_duration *= 1000;
+          task_finished = false;
+          start_time = millis();
+          last_reward_time = start_time - rewardTimeInterval + initialNoRewardTime;
+          stim = false;
+        } else stim = true;
+      } else mode = 0x7F;
+    }
   }
   if(mode > 3) {
     Serial.println("Serial error. Please reset");
@@ -95,7 +100,7 @@ void loop()
     }
     time = millis();
     sprintf(payload, "Dist(Left): %d (%d ms)", distance, time - start_time);
-    Serial.println(payload);    
+    Serial.println(payload);Serial.println(task_duration);
   }
 
   // Reward
@@ -103,7 +108,7 @@ void loop()
     if (time - last_reward_time >= rewardTimeInterval){
 
       if (stim) {
-        reward(&time);
+        time = reward();
         char payload[20];
         sprintf(payload, "Reward: %d ms", time - start_time);
         Serial.println(payload);
@@ -118,4 +123,5 @@ void loop()
     Serial.println(payload);
     task_finished = true;
   }
+  delay(1);
 }
