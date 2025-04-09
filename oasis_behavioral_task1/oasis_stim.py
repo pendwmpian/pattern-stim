@@ -19,7 +19,7 @@ STIM_NUMBER = 20 # times
 
 # session parameters
 nSessions = 30 # number of sessions
-session_duration = [30, 40] # duration (sec) up to 65535 seconds
+session_duration = [30, 40] # duration (sec) up to 65024 seconds
 # ex. [30, 40] means session durations (sec) are randomly picked up between 30-40sec (which contains 11 patterns 30, 31, ..., 39, 40)
 
 # Define Reward Regions in mm(milli-meters)
@@ -202,10 +202,12 @@ pattern_seq = generate_image_sequence(half_patt_border_x)
 def polygon_stimulation(cng_t, pindex, answer, duration, stim_log):
 
     start_time = None
+    dur1 = duration % 255; dur2 = duration // 255
     with arduino_lock:
         payload = answer.to_bytes(1, 'little')
-        payload += duration.to_bytes(2, 'little')
-        payload += b"\0"
+        payload += dur1.to_bytes(1, 'little')
+        payload += dur2.to_bytes(1, 'little')
+        payload += b"\x00"
         arduino_left.write(payload)
         arduino_right.write(payload)
 
@@ -277,11 +279,11 @@ def task_recording(task_log, answer):
                 
                 if answer == 2:
                     if LRegionLeftEnd < distance[0] and distance[0] < LRegionRightEnd and LRegionLeftEnd < distance[1] and distance[1] < LRegionRightEnd:
-                        payload = b"\64\0\0\0"
+                        payload = b"\x40\x00\x00\x00"
                         arduino_left.write(payload)
                 if answer == 3:
                     if RRegionLeftEnd < distance[0] and distance[0] < RRegionRightEnd and RRegionLeftEnd < distance[1] and distance[1] < RRegionRightEnd:
-                        payload = b"\64\0\0\0"
+                        payload = b"\x40\x00\x00\x00"
                         arduino_left.write(payload)
 
 
