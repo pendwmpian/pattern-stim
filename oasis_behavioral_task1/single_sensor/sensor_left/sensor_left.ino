@@ -1,7 +1,7 @@
 #include <Wire.h>
 #include <VL53L1X.h>
 
-// Define one sensor. This is for the right sensor. 
+// Define one sensor. This is for the left sensor. 
 VL53L1X sensor;
 
 // Define Reward Pin
@@ -41,8 +41,6 @@ void setup()
 
   pinMode(pin_RewardE, OUTPUT); // For MFB stimulation
 
-  delay(100);
-
   sensor.setTimeout(500);
   if (!sensor.init())
   {
@@ -50,7 +48,7 @@ void setup()
     while (1);
   }
 
-  sensor.setDistanceMode(VL53L1X::Medium);
+  sensor.setDistanceMode(VL53L1X::Long);
   sensor.setMeasurementTimingBudget(80000);
   sensor.startContinuous(100); // measuring at 10 Hz 
   
@@ -91,10 +89,9 @@ void loop()
   if(sensor.dataReady()){
     char payload[40];
 
-    distance = DistanceOffsetCorrection(sensor.read(false), 1); // 0 for the left sensor, 1 for the right sensor
+    distance = DistanceOffsetCorrection(sensor.read(false), 0); // 0 for the left sensor, 1 for the right sensor
     if (sensor.timeoutOccurred()) {
       distance = 0x7FFF;   // when timed out
-      break;
     }
     time = millis();
     sprintf(payload, "Dist(Left): %d (%d ms)", distance, time - start_time);
