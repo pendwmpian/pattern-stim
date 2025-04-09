@@ -28,6 +28,11 @@ LRegionRightEnd = 900
 RRegionLeftEnd = 1100
 RRegionRightEnd = 1900
 
+# FOV settings
+FOV_setting_manual = True # If False, the coordination of fov of the fiber will be automatically calculated by camera pictures.
+fov_center_x = 600
+camera_field_x = 1280; camera_field_x = 960
+
 # log files location
 LOGFILR_DIR = './logs'
 
@@ -176,21 +181,24 @@ s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 remote_ip = socket.gethostbyname( host )
 s.connect((remote_ip, port_stim))
 
-# s_camera = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-# remote_ip_camera = socket.gethostbyname( host )
-# s_camera.connect((remote_ip_camera, port_camera))
+if FOV_setting_manual is False:
 
-# # Receive Camera Image
-# oasis_camera.RequestAllImages(s_camera)
-# oasisReadImage = oasis_camera.ReadImage(s_camera)
-# oasis_image = oasisReadImage.receive()
-# fov_center_x, fov_center_y, _ = detectOuterCircle(oasis_image)
+    s_camera = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    remote_ip_camera = socket.gethostbyname( host )
+    s_camera.connect((remote_ip_camera, port_camera))
+
+    # Receive Camera Image
+    oasis_camera.RequestAllImages(s_camera)
+    oasisReadImage = oasis_camera.ReadImage(s_camera)
+    oasis_image = oasisReadImage.receive()
+    fov_center_x, fov_center_y, _ = detectOuterCircle(oasis_image)
+    camera_field_x = oasisReadImage.width
+    camera_field_y = oasisReadImage.height
 
 
-fov_center_x = 600
 # define the pattern image size
 w = STIM_EDGE; h = STIM_EDGE
-half_patt_border_x = w * fov_center_x // 1280 #oasisReadImage.width
+half_patt_border_x = w * fov_center_x // camera_field_x #oasisReadImage.width
 
 # define stimulation patterns
 
