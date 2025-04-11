@@ -1,3 +1,4 @@
+
 #include <Wire.h>
 #include <VL53L1X.h>
 
@@ -99,7 +100,7 @@ void loop()
       distance = 0x7FFF;   // when timed out
     }
     time = millis();
-    sprintf(payload, "Dist(Left): %d (%d ms)", distance, time - start_time);
+    sprintf(payload, "Dist(Left): %d (%ld ms)", distance, time - start_time);
     Serial.println(payload);Serial.println(task_duration);
   }
 
@@ -110,7 +111,7 @@ void loop()
       if (stim) {
         time = reward();
         char payload[20];
-        sprintf(payload, "Reward: %d ms", time - start_time);
+        sprintf(payload, "Reward: %ld ms", time - start_time);
         Serial.println(payload);
         last_reward_time = time;
       }
@@ -119,7 +120,7 @@ void loop()
   } else if (!task_finished) {
     time = millis();
     char payload[40];
-    sprintf(payload, "Session finished: %d ms", time - start_time);
+    sprintf(payload, "Session finished: %ld ms", time - start_time);
     Serial.println(payload);
     task_finished = true;
   }
