@@ -100,7 +100,7 @@ void loop()
     }
     time = millis();
     sprintf(payload, "Dist(Left): %d (%ld ms)", distance, time - start_time);
-    Serial.println(payload);Serial.println(task_duration);
+    Serial.println(payload);
   }
 
   // Reward
