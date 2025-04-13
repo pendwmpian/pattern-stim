@@ -94,6 +94,7 @@ oasis_image = oasisReadImage.receive()
 fov_center_x, fov_center_y, _ = detectOuterCircle(oasis_image)
 
 print(fov_center_x, fov_center_y, sep=" ")
+print(oasisReadImage.width, oasisReadImage.height, sep=" ")
 
 # # define the pattern image size
 # w = 200; h = 200

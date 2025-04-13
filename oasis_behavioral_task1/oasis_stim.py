@@ -30,7 +30,7 @@ RRegionRightEnd = 1900
 
 # FOV settings
 FOV_setting_manual = True # If False, the coordination of fov of the fiber will be automatically calculated by camera pictures.
-fov_center_x = 600
+fov_center_x = 564
 camera_field_x = 1280; camera_field_x = 960
 
 # log files location
@@ -38,7 +38,7 @@ LOGFILR_DIR = './logs'
 
 # define arduino address
 arduino_left = serial.Serial(
-    port = 'COM3',
+    port = 'COM7',
     baudrate = 115200,
     parity = serial.PARITY_NONE,
     stopbits = serial.STOPBITS_ONE,
@@ -50,6 +50,8 @@ arduino_right = serial.Serial(
     stopbits = serial.STOPBITS_ONE,
     bytesize = serial.EIGHTBITS)
 arduino_lock = threading.Lock() # For thread-safe accessing to arduino I/O
+
+time.sleep(2) # Sleep for arduino connection
 
 # define TCP server address
 host = "localhost"
@@ -210,12 +212,14 @@ pattern_seq = generate_image_sequence(half_patt_border_x)
 def polygon_stimulation(cng_t, pindex, answer, duration, stim_log):
 
     start_time = None
-    dur1 = duration % 255; dur2 = duration // 255
+    payload = "Ses,"
+    payload += str(answer)
+    payload += ","
+    payload += str(duration)
+    payload += "\r\n"
+    payload = payload.encode('utf-8')
+    print(payload)
     with arduino_lock:
-        payload = answer.to_bytes(1, 'little')
-        payload += dur1.to_bytes(1, 'little')
-        payload += dur2.to_bytes(1, 'little')
-        payload += b"\x00"
         arduino_left.write(payload)
         arduino_right.write(payload)
 
@@ -227,15 +231,15 @@ def polygon_stimulation(cng_t, pindex, answer, duration, stim_log):
 
         t = time.time()
         if start_time is None: start_time = t
-        time.sleep(cng / 1000000 - t / 1000 - 0.001)
+        time.sleep(max(0, cng / 1000000 - t / 1000 - 0.001))
         while(t - start_time < cng / 1000): 
             t = time.time()
         stim_log.write("{:.7f}".format(t - start_time) + ' sec: pattern ' + str(p) + '\n')
 
         func = np.uint32(1)
         s.send(func)
-        s.send(w)
-        s.send(h)
+        s.send(np.uint32(w))
+        s.send(np.uint32(h))
         s.send(pattern_seq[p])
 
     print("### stimulation end ###")
@@ -253,13 +257,15 @@ def task_recording(task_log, answer):
         with arduino_lock:
             if arduino_left.in_waiting > 0:
                 str = arduino_left.readline()
+                str = str.decode("ASCII")
                 distance = [-1000] * 2
+                mode = str.split(':')[0]
 
-                match str.split(':')[0]:
+                match mode:
 
                     case 'Dist(Left)':
-                        cnt += 1
-                        logging(task_log, str, True if cnt % 10 == 0 else False)
+                        print_cnt += 1
+                        logging(task_log, str, True if print_cnt % 10 == 0 else False)
                         distance[0] = int(str.split(' ')[1])
 
                     case 'Reward':
@@ -271,15 +277,16 @@ def task_recording(task_log, answer):
                 
                     case _:
                         logging(task_log, str, True)
-                        session_fin = True
+                        #session_fin = True
 
                 str = arduino_right.readline()
+                str = str.decode("ASCII")
+                mode = str.split(':')[0]
 
-                match str.split(':')[0]:
+                match mode:
 
                     case 'Dist(Right)':
-                        cnt += 1
-                        logging(task_log, str, True if cnt % 10 == 0 else False)
+                        logging(task_log, str, True if print_cnt % 10 == 0 else False)
                         distance[1] = int(str.split(' ')[1])
                 
                     case _:
@@ -287,11 +294,13 @@ def task_recording(task_log, answer):
                 
                 if answer == 2:
                     if LRegionLeftEnd < distance[0] and distance[0] < LRegionRightEnd and LRegionLeftEnd < distance[1] and distance[1] < LRegionRightEnd:
-                        payload = b"\x40\x00\x00\x00"
+                        payload = "Reward"
+                        payload = payload.encode('utf-8')
                         arduino_left.write(payload)
                 if answer == 3:
                     if RRegionLeftEnd < distance[0] and distance[0] < RRegionRightEnd and RRegionLeftEnd < distance[1] and distance[1] < RRegionRightEnd:
-                        payload = b"\x40\x00\x00\x00"
+                        payload = "Reward"
+                        payload = payload.encode('utf-8')
                         arduino_left.write(payload)
 
 

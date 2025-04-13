@@ -37,6 +37,19 @@ uint32_t reward(){
   return time; 
 }
 
+int split(String data, char delimiter, String *dst){
+  int idx = 0; 
+  int len = data.length();
+  for (int i = 0; i < len; i++) {
+    char tmp = data.charAt(i);
+    if ( tmp == delimiter ) {
+        idx++;
+    }
+    else dst[idx] += tmp;
+  }
+  return (idx + 1);
+}
+
 void setup()
 {
   Serial.begin(115200);
@@ -61,28 +74,24 @@ void setup()
 void loop()
 {
   uint32_t time = millis();
-
   // Receive session start notification
-
   if (Serial.available() > 0){ 
-    auto data = Serial.read();
-    if(data != -1){
-      buff[counter] = data;
-      counter++;
-    }
-    if(counter == 4){
-      counter = 0;
-      if(buff[3] == 0){
-        if ((uint8_t)buff[0] != 64){ // 64 is for reward stim 
-          mode = (uint8_t) buff[0]; // mode change (2: Left, 3: Right)
-          task_duration = buff[1] + (buff[2] * 255);
-          task_duration *= 1000;
-          task_finished = false;
-          start_time = millis();
-          last_reward_time = start_time - rewardTimeInterval + initialNoRewardTime;
-          stim = false;
-        } else stim = true;
-      } else mode = 0x7F;
+    auto data = Serial.readString();
+    data.trim();
+    String dat[3] = {"\0"};
+    int index = split(data, ',', dat);
+    if(dat[0] == "Ses"){  // "Session 2 10": mode 2 (left), duration 10sec
+        mode = dat[1].toInt();
+        task_duration = dat[2].toInt() * 1000;
+        task_finished = false;
+        start_time = millis();
+        last_reward_time = start_time - rewardTimeInterval + initialNoRewardTime;
+        stim = false;
+        char payload[80];
+        sprintf(payload, "Session started: mode %d, duration %ld msec", mode, task_duration);
+        Serial.println(payload);
+    } else if (dat[0] == "Reward"){
+      stim = true;
     }
   }
   if(mode > 3) {
@@ -91,10 +100,10 @@ void loop()
   }
 
   // Sensor
-  if(sensor.dataReady()){
+  if(true){
     char payload[40];
 
-    distance = DistanceOffsetCorrection(sensor.read(false), 0); // 0 for the left sensor, 1 for the right sensor
+    distance = DistanceOffsetCorrection(sensor.read(), 0); // 0 for the left sensor, 1 for the right sensor
     if (sensor.timeoutOccurred()) {
       distance = 0x7FFF;   // when timed out
     }
