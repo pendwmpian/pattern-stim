@@ -51,7 +51,7 @@ arduino_right = serial.Serial(
     bytesize = serial.EIGHTBITS)
 arduino_lock = threading.Lock() # For thread-safe accessing to arduino I/O
 
-time.sleep(2) # Sleep for arduino connection
+time.sleep(2)
 
 # define TCP server address
 host = "localhost"
@@ -251,15 +251,16 @@ def task_recording(task_log, answer):
 
     session_fin = False
     print_cnt = 0
+    distance = [-1000] * 2
 
     while(session_fin is False):
         time.sleep(0.05)
         with arduino_lock:
             if arduino_left.in_waiting > 0:
                 str = arduino_left.readline()
-                str = str.decode("ASCII")
-                distance = [-1000] * 2
+                str = str.decode("utf-8")
                 mode = str.split(':')[0]
+                print(str)
 
                 match mode:
 
@@ -279,8 +280,9 @@ def task_recording(task_log, answer):
                         logging(task_log, str, True)
                         #session_fin = True
 
+            if arduino_right.in_waiting > 0:
                 str = arduino_right.readline()
-                str = str.decode("ASCII")
+                str = str.decode("utf-8")
                 mode = str.split(':')[0]
 
                 match mode:
