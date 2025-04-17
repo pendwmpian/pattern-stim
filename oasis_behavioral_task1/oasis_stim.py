@@ -249,12 +249,13 @@ def polygon_stimulation(cng_t, pindex, answer, duration, stim_log):
 
 def task_recording(task_log, answer):
 
+    session_start = False
     session_fin = False
     print_cnt = 0
     distance = [-1000] * 2
 
     while(session_fin is False):
-        time.sleep(0.05)
+        time.sleep(0.005)
         with arduino_lock:
             if arduino_left.in_waiting > 0:
                 str = arduino_left.readline()
@@ -265,9 +266,10 @@ def task_recording(task_log, answer):
                 match mode:
 
                     case 'Dist(Left)':
-                        print_cnt += 1
-                        logging(task_log, str, True if print_cnt % 10 == 0 else False)
-                        distance[0] = int(str.split(' ')[1])
+                        if session_start is True:
+                            print_cnt += 1
+                            logging(task_log, str, True if print_cnt % 10 == 0 else False)
+                            distance[0] = int(str.split(' ')[1])
 
                     case 'Reward':
                         logging(task_log, str, True)
@@ -275,6 +277,10 @@ def task_recording(task_log, answer):
                     case 'Session finished':
                         logging(task_log, str, True)
                         session_fin = True
+                
+                    case 'Session started':
+                        logging(task_log, str, True)
+                        session_start = True
                 
                     case _:
                         logging(task_log, str, True)
@@ -288,8 +294,9 @@ def task_recording(task_log, answer):
                 match mode:
 
                     case 'Dist(Right)':
-                        logging(task_log, str, True if print_cnt % 10 == 0 else False)
-                        distance[1] = int(str.split(' ')[1])
+                        if session_start is True:
+                            logging(task_log, str, True if print_cnt % 10 == 0 else False)
+                            distance[1] = int(str.split(' ')[1])
                 
                     case _:
                         pass

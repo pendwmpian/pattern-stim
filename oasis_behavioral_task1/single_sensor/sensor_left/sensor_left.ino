@@ -29,6 +29,9 @@ const uint32_t initialNoRewardTime = 5000;
 uint8_t buff[4] = {0};
 int counter = 0;
 
+uint8_t buf[64];
+size_t idx = 0;
+
 uint32_t reward(){
   digitalWrite(pin_RewardE, HIGH); 
   auto time = millis();
@@ -75,23 +78,30 @@ void loop()
 {
   uint32_t time = millis();
   // Receive session start notification
-  if (Serial.available() > 0){ 
-    auto data = Serial.readString();
-    data.trim();
-    String dat[3] = {"\0"};
-    int index = split(data, ',', dat);
-    if(dat[0] == "Ses"){  // "Session 2 10": mode 2 (left), duration 10sec
-        mode = dat[1].toInt();
-        task_duration = dat[2].toInt() * 1000;
-        task_finished = false;
-        start_time = millis();
-        last_reward_time = start_time - rewardTimeInterval + initialNoRewardTime;
-        stim = false;
-        char payload[80];
-        sprintf(payload, "Session started: mode %d, duration %ld msec", mode, task_duration);
-        Serial.println(payload);
-    } else if (dat[0] == "Reward"){
-      stim = true;
+  while (Serial.available() > 0) {
+    byte b = Serial.read();
+    buf[idx++] = b;
+    if (b == "\n") {
+      char buf_truncated[64];
+      strcpy(buf_truncated, buf, idx);
+      idx = 0;
+      String data = buf_truncated;
+      data.trim();
+      String dat[3] = {"\0"};
+      int index = split(data, ',', dat);
+      if(dat[0] == "Ses"){  // "Session 2 10": mode 2 (left), duration 10sec
+          mode = dat[1].toInt();
+          task_duration = dat[2].toInt() * 1000;
+          task_finished = false;
+          start_time = millis();
+          last_reward_time = start_time - rewardTimeInterval + initialNoRewardTime;
+          stim = false;
+          char payload[30];
+          sprintf(payload, "Session started: %ld ms", task_duration);
+          Serial.println(payload);
+      } else if (dat[0] == "Reward"){
+        stim = true;
+      }
     }
   }
   if(mode > 3) {
@@ -127,7 +137,7 @@ void loop()
     }
   } else if (!task_finished) {
     time = millis();
-    char payload[40];
+    char payload[30];
     sprintf(payload, "Session finished: %ld ms", time - start_time);
     Serial.println(payload);
     task_finished = true;
