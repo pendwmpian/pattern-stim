@@ -86,7 +86,7 @@ void loop()
     buf[idx++] = b;
     if (b == "\n") {
       char buf_truncated[64];
-      strcpy(buf_truncated, buf, idx);
+      strncpy(buf_truncated, buf, idx);
       idx = 0;
       String data = buf_truncated;
       data.trim();
