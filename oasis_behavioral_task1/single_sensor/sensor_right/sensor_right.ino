@@ -84,7 +84,7 @@ void loop()
   while (Serial.available() > 0) {
     byte b = Serial.read();
     buf[idx++] = b;
-    if (b == "\n") {
+    if (b == '\n') {
       char buf_truncated[64];
       strncpy(buf_truncated, buf, idx);
       idx = 0;
