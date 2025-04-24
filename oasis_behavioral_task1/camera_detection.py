@@ -117,9 +117,9 @@ class positionEstimation():
 if __name__ == '__main__':
 
     # Initialize video capture
-    cap = cv2.VideoCapture(video_path)
+    cap = cv2.VideoCapture(0)
     if not cap.isOpened():
-        raise IOError(f"Cannot open video: {video_path}")
+        raise IOError(f"Cannot open camera")
 
     # Get properties
     fps = cap.get(cv2.CAP_PROP_FPS)
@@ -134,16 +134,13 @@ if __name__ == '__main__':
     prev = 0
     while True:
         t = time.time()
-        print(t - prev)
-        prev = t
 
         ret, frame = cap.read()
-        if not ret:
-            break
 
         pos = posEs.new_frame(frame)
 
-        # print(pos)
+        print(t - prev, pos)
+        prev = t
 
         # Show on screen
         cv2.imshow('Tracking / Mask', posEs.vis)
