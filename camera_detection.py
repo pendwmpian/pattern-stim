@@ -4,10 +4,13 @@ import csv
 
 # --- Configuration ---
 video_path = './data/video2.mp4'
+output_video = './data/tracking_output2.mp4'
 
-# Video size 
+# Video cropping bounds
 height_min = 520
 height_max = 600
+x_min = 500
+x_max = 1300
 
 # CLAHE parameters
 clahe_clip = 2.0
@@ -28,8 +31,14 @@ cap = cv2.VideoCapture(video_path)
 if not cap.isOpened():
     raise IOError(f"Cannot open video: {video_path}")
 
+# Get properties
+fps = cap.get(cv2.CAP_PROP_FPS)
+
 # Prepare CLAHE
 clahe = cv2.createCLAHE(clipLimit=clahe_clip, tileGridSize=clahe_tiles)
+
+# For saving output
+writer = None
 
 positions = []     # list of (frame_idx, x, y)
 prev_pos = None    # previous centroid
@@ -40,13 +49,14 @@ while True:
     if not ret:
         break
 
-    frame = frame[height_min:height_max, 500:1300]
+    # Crop region of interest
+    frame = frame[height_min:height_max, x_min:x_max]
 
     # Convert to grayscale
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY) if frame.ndim == 3 else frame
 
-    ret, gray = cv2.threshold(gray,40,255,cv2.THRESH_TRUNC)
-    # cv2.imshow('Tracking / Mask', gray)
+    # Clip bright values; animal is very dark
+    _, gray = cv2.threshold(gray, 40, 255, cv2.THRESH_TRUNC)
 
     # 1) Local contrast enhancement
     equalized = clahe.apply(gray)
@@ -94,10 +104,21 @@ while True:
         prev_pos = chosen_pos
         cv2.circle(frame, chosen_pos, 6, (0, 0, 255), -1)
 
-    # Show side-by-side: original + mask
+    # Prepare side-by-side display
     mask_bgr = cv2.cvtColor(clean, cv2.COLOR_GRAY2BGR)
-    gray_bgr = cv2.cvtColor(th, cv2.COLOR_GRAY2BGR)
-    vis = np.hstack((frame, gray_bgr, mask_bgr))
+    thresh_bgr = cv2.cvtColor(th, cv2.COLOR_GRAY2BGR)
+    vis = np.hstack((frame, thresh_bgr, mask_bgr))
+
+    # Initialize writer once we know frame size
+    if writer is None:
+        h, w = vis.shape[:2]
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        writer = cv2.VideoWriter(output_video, fourcc, fps, (w, h))
+
+    # Write to video
+    writer.write(vis)
+
+    # Show on screen
     cv2.imshow('Tracking / Mask', vis)
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
@@ -106,12 +127,14 @@ while True:
 
 # Cleanup
 cap.release()
+if writer is not None:
+    writer.release()
 cv2.destroyAllWindows()
 
 # Save trajectory
 with open('trajectory.csv', 'w', newline='') as csvfile:
-    writer = csv.writer(csvfile)
-    writer.writerow(['frame', 'x', 'y'])
-    writer.writerows(positions)
+    writer_csv = csv.writer(csvfile)
+    writer_csv.writerow(['frame', 'x', 'y'])
+    writer_csv.writerows(positions)
 
-print(f"Done! Saved {len(positions)} positions to trajectory.csv")
+print(f"Done! Saved {len(positions)} positions to trajectory.csv and video to {output_video}")
