@@ -10,7 +10,7 @@ import random
 import cv2
 import threading
 import oasis_camera
-from camera_detection import positionEstimation
+from camera_detection import PositionEstimation
 
 
 # stimulation parameters
@@ -42,7 +42,7 @@ LOGFILR_DIR = './logs'
 crop_bounds = (510, 590, 300, 1670)
 positionx_left = 33 # coord of the left end of the linear track
 positionx_right = 1342 # coord of the right end of the linear track
-positionEst = positionEstimation(crop_bounds=crop_bounds)
+positionEst = PositionEstimation(crop_bounds=crop_bounds)
 cap_video = cv2.VideoCapture(0)
 if not cap_video.isOpened():
     raise IOError(f"Cannot open camera")
