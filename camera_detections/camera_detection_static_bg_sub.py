@@ -4,12 +4,12 @@ import time
 import os
 
 # --- Configuration for Static Background Subtraction Method ---
-video_path = './data/video2.mp4'
-baseline_image_path = './data/baseline_image.png' # Path to the pre-generated baseline
-output_video_static_bg_sub = './data/tracking_output_static_bg_sub.mp4'
+video_path = './data/video0627.mp4'
+baseline_image_path = './data/baseline_image_0627.png' # Path to the pre-generated baseline
+output_video_static_bg_sub = './data/tracking_output_static_bg_sub_0627.mp4'
 
 # Video cropping bounds
-crop_bounds = (560, 640, 150, 1700) # y_min, y_max, x_min, x_max
+crop_bounds = (560, 680, 150, 1700) # y_min, y_max, x_min, x_max
 
 # Background Subtraction Parameters
 diff_threshold = 30
@@ -133,6 +133,7 @@ if __name__ == '__main__':
             break
 
         pos = estimator.new_frame(frame)
+        print(pos)
         
         if estimator.vis is not None:
             cv2.imshow('Static Background Subtraction Tracking', estimator.vis)

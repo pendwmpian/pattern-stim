@@ -3,10 +3,10 @@ import numpy as np
 import time
 
 # --- Configuration ---
-video_path = './data/video2.mp4'
-baseline_output_path = './data/baseline_image.png'
+video_path = './data/video0627.mp4'
+baseline_output_path = './data/baseline_image_0627.png'
 num_frames_to_average = 2000 # Number of frames to average for the baseline
-crop_bounds = (560, 640, 150, 1700) # y_min, y_max, x_min, x_max (same as in tracking)
+crop_bounds = (560, 680, 150, 1700) # y_min, y_max, x_min, x_max (same as in tracking)
 # ---------------------
 
 def create_baseline_image():
