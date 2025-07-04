@@ -39,9 +39,9 @@ camera_field_x = 1280; camera_field_x = 960
 LOGFILR_DIR = './logs'
 
 # Video settings (for the position estimation)
-crop_bounds = (520, 600, 500, 1300)
-positionx_left = 400 # coord of the left end of the linear track
-positionx_right = 800 # coord of the right end of the linear track
+crop_bounds = (510, 590, 300, 1670)
+positionx_left = 33 # coord of the left end of the linear track
+positionx_right = 1342 # coord of the right end of the linear track
 positionEst = positionEstimation(crop_bounds=crop_bounds)
 cap_video = cv2.VideoCapture(0)
 if not cap_video.isOpened():
