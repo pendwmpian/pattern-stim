@@ -37,8 +37,8 @@ def crop_image(input_path, output_path, crop_bounds):
 if __name__ == '__main__':
     # Define input and output paths
     # The input image path is now specifically './image.jpg'
-    input_image_path = "../data/baseline_image_uncropped.jpg"
-    output_image_path = "../data/baseline_image.png"
+    input_image_path = "./data/baseline_image_uncropped.jpg"
+    output_image_path = "./data/baseline_image.png"
 
     # Define crop bounds (y_min, y_max, x_min, x_max)
     # This corresponds to:

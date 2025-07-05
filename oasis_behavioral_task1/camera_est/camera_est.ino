@@ -54,7 +54,6 @@ void setup()
 
 void loop()
 {
-  uint32_t time = millis();
   // Receive session start notification
   while (Serial.available() > 0) {
     byte b = Serial.read();
@@ -87,6 +86,7 @@ void loop()
     return;
   }
 
+  uint32_t time = millis();
 
   // Reward
   if (time - start_time <= task_duration) {
@@ -100,7 +100,7 @@ void loop()
         last_reward_time = time;
       }
       stim = false;
-    }
+    } else stim = false;
   } else if (!task_finished) {
     time = millis();
     char payload[30];

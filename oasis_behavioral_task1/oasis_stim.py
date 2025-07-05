@@ -18,6 +18,8 @@ STIM_DURATION = 10 # msec
 INTERVAL_DURATION = 90 # msec
 STIM_NUMBER = 20 # times
 
+REWARD_TIME_INBTERVAL = 1 # sec
+
 # session parameters
 nSessions = 30 # number of sessions
 session_duration = [30, 40] # duration (sec) up to 65024 seconds
@@ -38,12 +40,16 @@ camera_field_x = 1280; camera_field_x = 960
 # log files location
 LOGFILR_DIR = './logs'
 
+BASELINE_IMAGE = './data/baseline_image.png'
+
 # Video settings (for the position estimation)
 crop_bounds = (510, 590, 300, 1670)
 positionx_left = 33 # coord of the left end of the linear track
 positionx_right = 1342 # coord of the right end of the linear track
-positionEst = PositionEstimation(crop_bounds=crop_bounds)
+positionEst = PositionEstimation(crop_bounds_param=crop_bounds, baseline_path_param=BASELINE_IMAGE)
 cap_video = cv2.VideoCapture(0)
+cap_video.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
+cap_video.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
 if not cap_video.isOpened():
     raise IOError(f"Cannot open camera")
 fps_camera_est= cap_video.get(cv2.CAP_PROP_FPS)
@@ -263,6 +269,7 @@ def task_recording(task_log, answer):
     session_fin = False
     detect_cnt = 0
     distance = -1000
+    last_reward_time = time.time()
 
     while(session_fin is False):
                 
@@ -273,44 +280,45 @@ def task_recording(task_log, answer):
             pos = positionEst.new_frame(frame)
             if pos is not None:
                 distance = (pos[0] - positionx_left) / (positionx_right - positionx_left) * track_length
-            logging(task_log, str, True)
+            logging(task_log, "distance: " + str(distance) + "\n", True)
         detect_cnt += 1
 
         with arduino_lock:
             if arduino.in_waiting > 0:
-                str = arduino.readline()
-                str = str.decode("utf-8")
-                mode = str.split(':')[0]
-                print(str)
+                str_arduino = arduino.readline()
+                str_arduino = str_arduino.decode("utf-8")
+                mode = str_arduino.split(':')[0]
+                print(str_arduino)
 
                 match mode:
 
                     case 'Reward':
-                        logging(task_log, str, True)
+                        logging(task_log, str_arduino, True)
 
                     case 'Session finished':
-                        logging(task_log, str, True)
+                        logging(task_log, str_arduino, True)
                         session_fin = True
                 
                     case 'Session started':
-                        logging(task_log, str, True)
+                        logging(task_log, str_arduino, True)
                         session_start = True
                 
                     case _:
-                        logging(task_log, str, True)
+                        logging(task_log, str_arduino, True)
                         #session_fin = True
 
-                
-        if answer == 2:
-            if LRegionLeftEnd < distance and distance < LRegionRightEnd:
-                payload = "Reward"
-                payload = payload.encode('utf-8')
-                arduino.write(payload)
-        if answer == 3:
-            if RRegionLeftEnd < distance and distance < RRegionRightEnd:
-                payload = "Reward"
-                payload = payload.encode('utf-8')
-                arduino.write(payload)
+        if time.time() - last_reward_time > REWARD_TIME_INBTERVAL:
+            if answer == 2:
+                if LRegionLeftEnd < distance and distance < LRegionRightEnd:
+                    payload = "Reward,\r\n"
+                    payload = payload.encode('utf-8')
+                    arduino.write(payload)
+            if answer == 3:
+                if RRegionLeftEnd < distance and distance < RRegionRightEnd:
+                    payload = "Reward,\r\n"
+                    payload = payload.encode('utf-8')
+                    arduino.write(payload)
+            last_reward_time = time.time()
 
 
 log_file_task.write('start sessions : ' + str(datetime.datetime.now()) + '\n\n')
