@@ -10,7 +10,6 @@ import random
 import cv2
 import threading
 import oasis_camera
-from camera_detection import PositionEstimation
 
 
 # stimulation parameters
@@ -18,21 +17,18 @@ STIM_DURATION = 10 # msec
 INTERVAL_DURATION = 90 # msec
 STIM_NUMBER = 20 # times
 
-REWARD_TIME_INBTERVAL = 1 # sec
-
 # session parameters
 nSessions = 30 # number of sessions
 session_duration = [30, 40] # duration (sec) up to 65024 seconds
 # ex. [30, 40] means session durations (sec) are randomly picked up between 30-40sec (which contains 11 patterns 30, 31, ..., 39, 40)
 
 # Define Reward Regions in mm(milli-meters)
-track_length = 2000
 LRegionLeftEnd = 100
 LRegionRightEnd = 900
 RRegionLeftEnd = 1100
 RRegionRightEnd = 1900
 
-# FOV settings (OASIS Camera)
+# FOV settings
 FOV_setting_manual = True # If False, the coordination of fov of the fiber will be automatically calculated by camera pictures.
 fov_center_x = 564
 camera_field_x = 1280; camera_field_x = 960
@@ -40,27 +36,15 @@ camera_field_x = 1280; camera_field_x = 960
 # log files location
 LOGFILR_DIR = './logs'
 
-BASELINE_IMAGE = './data/baseline_image.png'
-
-# Video settings (for the position estimation)
-crop_bounds = (510, 590, 300, 1670)
-positionx_left = 33 # coord of the left end of the linear track
-positionx_right = 1342 # coord of the right end of the linear track
-positionEst = PositionEstimation(crop_bounds_param=crop_bounds, baseline_path_param=BASELINE_IMAGE)
-cap_video = cv2.VideoCapture(0)
-cap_video.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
-cap_video.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
-if not cap_video.isOpened():
-    raise IOError(f"Cannot open camera")
-fps_camera_est= cap_video.get(cv2.CAP_PROP_FPS)
-ret, frame_for_resize = cap_video.read()
-if not ret:
-    raise IOError(f"Cannot get frames from the camera")
-h_camera, w_camera = frame_for_resize.shape[:2]
-
 # define arduino address
-arduino = serial.Serial(
+arduino_left = serial.Serial(
     port = 'COM7',
+    baudrate = 115200,
+    parity = serial.PARITY_NONE,
+    stopbits = serial.STOPBITS_ONE,
+    bytesize = serial.EIGHTBITS)
+arduino_right = serial.Serial(
+    port = 'COM4',
     baudrate = 115200,
     parity = serial.PARITY_NONE,
     stopbits = serial.STOPBITS_ONE,
@@ -191,8 +175,7 @@ if not os.path.exists(LOGFILR_DIR):
 now = datetime.datetime.now()
 log_file_stim = open(LOGFILR_DIR + '/experiment_' + now.strftime('%Y%m%d_%H%M%S') + '_stimulation.log', 'x')
 log_file_task = open(LOGFILR_DIR + '/experiment_' + now.strftime('%Y%m%d_%H%M%S') + '_tasks.log', 'x')
-fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-writer_camera = cv2.VideoWriter(LOGFILR_DIR + '/experiment_' + now.strftime('%Y%m%d_%H%M%S') + '_task.mp4', fourcc, fps_camera_est, (w_camera, h_camera))
+
 
 
 # connect to server
@@ -237,7 +220,8 @@ def polygon_stimulation(cng_t, pindex, answer, duration, stim_log):
     payload = payload.encode('utf-8')
     print(payload)
     with arduino_lock:
-        arduino.write(payload)
+        arduino_left.write(payload)
+        arduino_right.write(payload)
 
     stim_log.write('start signal to arduino : ' + str(datetime.datetime.now()) + '\n')
 
@@ -267,58 +251,66 @@ def task_recording(task_log, answer):
 
     session_start = False
     session_fin = False
-    detect_cnt = 0
-    distance = -1000
-    last_reward_time = time.time()
+    print_cnt = 0
+    distance = [-1000] * 2
 
     while(session_fin is False):
-                
-        ret, frame = cap_video.read()
-        writer_camera.write(frame)
-
-        if detect_cnt % 6 == 0:
-            pos = positionEst.new_frame(frame)
-            if pos is not None:
-                distance = (pos[0] - positionx_left) / (positionx_right - positionx_left) * track_length
-            logging(task_log, "distance: " + str(distance) + "\n", True)
-        detect_cnt += 1
-
+        time.sleep(0.005)
         with arduino_lock:
-            if arduino.in_waiting > 0:
-                str_arduino = arduino.readline()
-                str_arduino = str_arduino.decode("utf-8")
-                mode = str_arduino.split(':')[0]
-                print(str_arduino)
+            if arduino_left.in_waiting > 0:
+                str = arduino_left.readline()
+                str = str.decode("utf-8")
+                mode = str.split(':')[0]
+                print(str)
 
                 match mode:
 
+                    case 'Dist(Left)':
+                        if session_start is True:
+                            print_cnt += 1
+                            logging(task_log, str, True if print_cnt % 10 == 0 else False)
+                            distance[0] = int(str.split(' ')[1])
+
                     case 'Reward':
-                        logging(task_log, str_arduino, True)
+                        logging(task_log, str, True)
 
                     case 'Session finished':
-                        logging(task_log, str_arduino, True)
+                        logging(task_log, str, True)
                         session_fin = True
                 
                     case 'Session started':
-                        logging(task_log, str_arduino, True)
+                        logging(task_log, str, True)
                         session_start = True
                 
                     case _:
-                        logging(task_log, str_arduino, True)
+                        logging(task_log, str, True)
                         #session_fin = True
 
-        if time.time() - last_reward_time > REWARD_TIME_INBTERVAL:
-            if answer == 2:
-                if LRegionLeftEnd < distance and distance < LRegionRightEnd:
-                    payload = "Reward,\r\n"
-                    payload = payload.encode('utf-8')
-                    arduino.write(payload)
-            if answer == 3:
-                if RRegionLeftEnd < distance and distance < RRegionRightEnd:
-                    payload = "Reward,\r\n"
-                    payload = payload.encode('utf-8')
-                    arduino.write(payload)
-            last_reward_time = time.time()
+            if arduino_right.in_waiting > 0:
+                str = arduino_right.readline()
+                str = str.decode("utf-8")
+                mode = str.split(':')[0]
+
+                match mode:
+
+                    case 'Dist(Right)':
+                        if session_start is True:
+                            logging(task_log, str, True if print_cnt % 10 == 0 else False)
+                            distance[1] = int(str.split(' ')[1])
+                
+                    case _:
+                        pass
+                
+                if answer == 2:
+                    if LRegionLeftEnd < distance[0] and distance[0] < LRegionRightEnd and LRegionLeftEnd < distance[1] and distance[1] < LRegionRightEnd:
+                        payload = "Reward"
+                        payload = payload.encode('utf-8')
+                        arduino_left.write(payload)
+                if answer == 3:
+                    if RRegionLeftEnd < distance[0] and distance[0] < RRegionRightEnd and RRegionLeftEnd < distance[1] and distance[1] < RRegionRightEnd:
+                        payload = "Reward"
+                        payload = payload.encode('utf-8')
+                        arduino_left.write(payload)
 
 
 log_file_task.write('start sessions : ' + str(datetime.datetime.now()) + '\n\n')
@@ -361,12 +353,8 @@ log_file_task.write('end sessions : ' + str(datetime.datetime.now()) + '\n')
 s.close()
 
 # close arduino connection
-arduino.close()
-
-# close video files
-cap_video.release()
-if writer_camera is not None:
-    writer_camera.release()
+arduino_left.close()
+arduino_right.close()
 
 # close log files
 log_file_stim.close()
